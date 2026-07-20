@@ -49,6 +49,29 @@ const WORKBENCH_MARKER = "/* RTL AI Chats (injected) */";
 
 const SCRIPT_PATH = path.join(__dirname, "rtl-script.js");
 const CSS_PATH = path.join(__dirname, "rtl-workbench.css");
+const FONT_DIR = path.join(__dirname, "assets", "fonts");
+
+// ── Bundled Vazirmatn font ─────────────────────────────────────────────────────
+// Embedded as base64 data URIs so the @font-face works inside a sandboxed
+// webview regardless of whether Vazirmatn is installed on the host system.
+
+function buildFontFaceCss() {
+    if (CONFIG.font.family !== "Vazirmatn") return "";
+    try {
+        const regular = fs.readFileSync(path.join(FONT_DIR, "Vazirmatn-Regular.woff2")).toString("base64");
+        const bold = fs.readFileSync(path.join(FONT_DIR, "Vazirmatn-Bold.woff2")).toString("base64");
+        return (
+            `@font-face{font-family:'Vazirmatn';font-weight:400;font-style:normal;font-display:swap;` +
+            `src:url(data:font/woff2;base64,${regular}) format('woff2');}\n` +
+            `@font-face{font-family:'Vazirmatn';font-weight:700;font-style:normal;font-display:swap;` +
+            `src:url(data:font/woff2;base64,${bold}) format('woff2');}\n`
+        );
+    } catch {
+        return "";
+    }
+}
+
+const FONT_FACE_CSS = buildFontFaceCss();
 
 // ── Editors this script knows about ───────────────────────────────────────────
 // `extDir` is the dot-folder under $HOME that holds `extensions/`.
@@ -196,10 +219,7 @@ function injectWebview(target, scriptContent) {
         return;
     }
 
-    if (isInjected(filePath)) {
-        console.log(`[OK]   ${name}: already injected`);
-        return;
-    }
+    const wasAlreadyInjected = isInjected(filePath);
 
     if (!fs.existsSync(backupPath)) {
         if (!DRY_RUN) fs.copyFileSync(filePath, backupPath);
@@ -207,11 +227,24 @@ function injectWebview(target, scriptContent) {
     }
 
     if (!DRY_RUN) {
-        const original = fs.readFileSync(filePath, "utf8");
+        let original = fs.readFileSync(filePath, "utf8");
+        // Strip any previously-injected block first, so re-running always ends
+        // up with the current script/config instead of silently keeping stale
+        // content from a previous extension version.
+        const markerBlock = `\n\n${MARKER}\n`;
+        const markerIdx = original.indexOf(markerBlock);
+        if (markerIdx !== -1) original = original.slice(0, markerIdx);
+
         const configSnippet = `window.__RTL_AI_CHATS_CONFIG__ = ${JSON.stringify(CONFIG)};\n`;
-        fs.writeFileSync(filePath, original + `\n\n${MARKER}\n${configSnippet}${scriptContent}\n`, "utf8");
+        const fontFaceSnippet = FONT_FACE_CSS
+            ? `(function(){var s=document.createElement('style');s.id='rtl-ai-chats-fontface';` +
+              `s.textContent=${JSON.stringify(FONT_FACE_CSS)};` +
+              `function inj(){(document.head||document.documentElement).appendChild(s);}` +
+              `if(document.head){inj();}else{document.addEventListener('DOMContentLoaded',inj);}})();\n`
+            : "";
+        fs.writeFileSync(filePath, original + markerBlock + configSnippet + fontFaceSnippet + scriptContent + "\n", "utf8");
     }
-    console.log(`[INJ]  ${name}: RTL script injected`);
+    console.log(`[INJ]  ${name}: RTL script ${wasAlreadyInjected ? "refreshed" : "injected"}`);
 }
 
 // ── Workbench injection ───────────────────────────────────────────────────────
@@ -236,10 +269,7 @@ function injectWorkbench(target, cssContent) {
         return;
     }
 
-    if (isWorkbenchInjected(workbenchPath)) {
-        console.log(`[OK]   ${name} (workbench.html): already injected`);
-        return;
-    }
+    const wasAlreadyInjected = isWorkbenchInjected(workbenchPath);
 
     if (!fs.existsSync(backupPath)) {
         if (!DRY_RUN) fs.copyFileSync(workbenchPath, backupPath);
@@ -260,12 +290,24 @@ function injectWorkbench(target, cssContent) {
         }
     }
 
+    // Strip any previously-injected RTL block, so re-running always refreshes
+    // to the current CSS/config instead of keeping stale content in place.
+    const ownStartTag = `<!-- ${WORKBENCH_MARKER} -->`;
+    const ownEndTag = "</style>\n";
+    const ownStart = content.indexOf(ownStartTag);
+    if (ownStart !== -1) {
+        const ownEnd = content.indexOf(ownEndTag, ownStart);
+        if (ownEnd !== -1) {
+            content = content.slice(0, ownStart) + content.slice(ownEnd + ownEndTag.length);
+        }
+    }
+
     const fontStack =
         CONFIG.font.family === "System default"
             ? "inherit"
             : `'${CONFIG.font.family}', 'Sahel', 'Vazirmatn', sans-serif`;
     const varsBlock = `:root {\n  --rtl-ai-font-family: ${fontStack};\n  --rtl-ai-font-scale: ${CONFIG.font.scale};\n  --rtl-ai-line-height: ${CONFIG.font.lineHeight};\n}\n`;
-    const injection = `\n<!-- ${WORKBENCH_MARKER} -->\n<style id="rtl-ai-chats">\n${varsBlock}${cssContent}\n</style>\n`;
+    const injection = `\n<!-- ${WORKBENCH_MARKER} -->\n<style id="rtl-ai-chats">\n${FONT_FACE_CSS}${varsBlock}${cssContent}\n</style>\n`;
     if (!content.includes("</html>")) {
         content += injection;
     } else {
@@ -273,7 +315,7 @@ function injectWorkbench(target, cssContent) {
     }
 
     if (!DRY_RUN) fs.writeFileSync(workbenchPath, content, "utf8");
-    console.log(`[INJ]  ${name} (workbench.html): RTL CSS injected`);
+    console.log(`[INJ]  ${name} (workbench.html): RTL CSS ${wasAlreadyInjected ? "refreshed" : "injected"}`);
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

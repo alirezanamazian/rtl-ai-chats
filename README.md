@@ -133,7 +133,7 @@ editor.
 | `rtl-ai-chats.autoApplyOnStartup` | `true` | Re-apply automatically on startup and after updates. |
 | `rtl-ai-chats.showInActivityBar` | `true` | Show/hide the Activity Bar panel. |
 | `rtl-ai-chats.showStatusBar` | `true` | Show/hide the on/off item in the status bar. |
-| `rtl-ai-chats.font.family` | `Vazirmatn` | Font for RTL text — `Vazirmatn`, `Sahel`, or `System default`. Must be installed on your system to take effect; otherwise it falls back automatically. |
+| `rtl-ai-chats.font.family` | `Vazirmatn` | Font for RTL text — `Vazirmatn` (bundled, works out of the box), `Sahel` (must be installed on your system), or `System default`. |
 | `rtl-ai-chats.font.scale` | `1` | Size of RTL text relative to the chat's default. |
 | `rtl-ai-chats.font.lineHeight` | `1.85` | Line spacing for RTL text. |
 | `rtl-ai-chats.detection.mode` | `ratio` | `ratio` (smart: flips once enough of a message's letters are RTL) or `first-strong` (flips based on the first strong-directional character, like the browser's native `dir="auto"`). |
@@ -155,6 +155,11 @@ You just get a prompt to reload the window; no manual steps needed.
 Run **RTL: Restore Original (Undo All Patches)** (or `node fix-rtl.js
 --restore`) first to revert every patched file to its pre-extension state,
 then uninstall the extension normally from each editor.
+
+## Credits
+
+The bundled `Vazirmatn` font is by Saber Rastikerdar, licensed under the
+[SIL Open Font License](assets/fonts/OFL.txt).
 
 ## License
 
