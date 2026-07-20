@@ -52,30 +52,48 @@ const CSS_PATH = path.join(__dirname, "rtl-workbench.css");
 const FONT_DIR = path.join(__dirname, "assets", "fonts");
 
 // ── Bundled fonts ──────────────────────────────────────────────────────────────
-// Embedded as base64 data URIs so @font-face works inside a sandboxed webview
-// regardless of whether the font is installed on the host system.
+// AI chat webviews (Claude Code, Codex, Gemini) ship a CSP with
+// `font-src ${cspSource}` and no `data:` — so a base64 @font-face is silently
+// blocked. The only origin that's allowed is the extension's own webview
+// folder, so we physically copy the .woff2 next to the patched file and
+// reference it with a relative url() instead.
 
 const BUNDLED_FONT_FILES = {
     Vazirmatn: { regular: "Vazirmatn-Regular.woff2", bold: "Vazirmatn-Bold.woff2" },
     Sahel: { regular: "Sahel-Regular.woff2", bold: "Sahel-Bold.woff2" },
 };
+const FONT_COPY_NAMES = { regular: "rtl-ai-chats-font-regular.woff2", bold: "rtl-ai-chats-font-bold.woff2" };
+
+function copyFontsNextTo(targetDir) {
+    const files = BUNDLED_FONT_FILES[CONFIG.font.family];
+    if (!files) return false;
+    try {
+        fs.copyFileSync(path.join(FONT_DIR, files.regular), path.join(targetDir, FONT_COPY_NAMES.regular));
+        fs.copyFileSync(path.join(FONT_DIR, files.bold), path.join(targetDir, FONT_COPY_NAMES.bold));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function removeFontsFrom(targetDir) {
+    try {
+        fs.unlinkSync(path.join(targetDir, FONT_COPY_NAMES.regular));
+    } catch {}
+    try {
+        fs.unlinkSync(path.join(targetDir, FONT_COPY_NAMES.bold));
+    } catch {}
+}
 
 function buildFontFaceCss() {
-    const files = BUNDLED_FONT_FILES[CONFIG.font.family];
-    if (!files) return "";
-    try {
-        const regular = fs.readFileSync(path.join(FONT_DIR, files.regular)).toString("base64");
-        const bold = fs.readFileSync(path.join(FONT_DIR, files.bold)).toString("base64");
-        const family = CONFIG.font.family;
-        return (
-            `@font-face{font-family:'${family}';font-weight:400;font-style:normal;font-display:swap;` +
-            `src:url(data:font/woff2;base64,${regular}) format('woff2');}\n` +
-            `@font-face{font-family:'${family}';font-weight:700;font-style:normal;font-display:swap;` +
-            `src:url(data:font/woff2;base64,${bold}) format('woff2');}\n`
-        );
-    } catch {
-        return "";
-    }
+    if (!BUNDLED_FONT_FILES[CONFIG.font.family]) return "";
+    const family = CONFIG.font.family;
+    return (
+        `@font-face{font-family:'${family}';font-weight:400;font-style:normal;font-display:swap;` +
+        `src:url('./${FONT_COPY_NAMES.regular}') format('woff2');}\n` +
+        `@font-face{font-family:'${family}';font-weight:700;font-style:normal;font-display:swap;` +
+        `src:url('./${FONT_COPY_NAMES.bold}') format('woff2');}\n`
+    );
 }
 
 const FONT_FACE_CSS = buildFontFaceCss();
@@ -215,10 +233,14 @@ function injectWebview(target, scriptContent) {
     }
 
     const backupPath = filePath + ".rtl-backup";
+    const targetDir = path.dirname(filePath);
 
     if (RESTORE) {
         if (fs.existsSync(backupPath)) {
-            if (!DRY_RUN) fs.copyFileSync(backupPath, filePath);
+            if (!DRY_RUN) {
+                fs.copyFileSync(backupPath, filePath);
+                removeFontsFrom(targetDir);
+            }
             console.log(`[RESTORE] ${name}: restored from backup`);
         } else {
             console.log(`[SKIP] ${name}: no backup found`);
@@ -243,12 +265,16 @@ function injectWebview(target, scriptContent) {
         if (markerIdx !== -1) original = original.slice(0, markerIdx);
 
         const configSnippet = `window.__RTL_AI_CHATS_CONFIG__ = ${JSON.stringify(CONFIG)};\n`;
-        const fontFaceSnippet = FONT_FACE_CSS
-            ? `(function(){var s=document.createElement('style');s.id='rtl-ai-chats-fontface';` +
-              `s.textContent=${JSON.stringify(FONT_FACE_CSS)};` +
-              `function inj(){(document.head||document.documentElement).appendChild(s);}` +
-              `if(document.head){inj();}else{document.addEventListener('DOMContentLoaded',inj);}})();\n`
-            : "";
+        let fontFaceSnippet = "";
+        if (FONT_FACE_CSS && copyFontsNextTo(targetDir)) {
+            fontFaceSnippet =
+                `(function(){var s=document.createElement('style');s.id='rtl-ai-chats-fontface';` +
+                `s.textContent=${JSON.stringify(FONT_FACE_CSS)};` +
+                `function inj(){(document.head||document.documentElement).appendChild(s);}` +
+                `if(document.head){inj();}else{document.addEventListener('DOMContentLoaded',inj);}})();\n`;
+        } else {
+            removeFontsFrom(targetDir);
+        }
         fs.writeFileSync(filePath, original + markerBlock + configSnippet + fontFaceSnippet + scriptContent + "\n", "utf8");
     }
     console.log(`[INJ]  ${name}: RTL script ${wasAlreadyInjected ? "refreshed" : "injected"}`);
@@ -268,7 +294,10 @@ function injectWorkbench(target, cssContent) {
 
     if (RESTORE) {
         if (fs.existsSync(backupPath)) {
-            if (!DRY_RUN) fs.copyFileSync(backupPath, workbenchPath);
+            if (!DRY_RUN) {
+                fs.copyFileSync(backupPath, workbenchPath);
+                removeFontsFrom(path.dirname(workbenchPath));
+            }
             console.log(`[RESTORE] ${name} (workbench.html): restored from backup`);
         } else {
             console.log(`[SKIP] ${name}: no backup found`);
@@ -314,7 +343,15 @@ function injectWorkbench(target, cssContent) {
             ? "inherit"
             : `'${CONFIG.font.family}', 'Sahel', 'Vazirmatn', sans-serif`;
     const varsBlock = `:root {\n  --rtl-ai-font-family: ${fontStack};\n  --rtl-ai-font-scale: ${CONFIG.font.scale};\n  --rtl-ai-line-height: ${CONFIG.font.lineHeight};\n}\n`;
-    const injection = `\n<!-- ${WORKBENCH_MARKER} -->\n<style id="rtl-ai-chats">\n${FONT_FACE_CSS}${varsBlock}${cssContent}\n</style>\n`;
+    const workbenchDir = path.dirname(workbenchPath);
+    let fontFaceCss = "";
+    if (!DRY_RUN) {
+        fontFaceCss = FONT_FACE_CSS && copyFontsNextTo(workbenchDir) ? FONT_FACE_CSS : "";
+        if (!fontFaceCss) removeFontsFrom(workbenchDir);
+    } else {
+        fontFaceCss = FONT_FACE_CSS;
+    }
+    const injection = `\n<!-- ${WORKBENCH_MARKER} -->\n<style id="rtl-ai-chats">\n${fontFaceCss}${varsBlock}${cssContent}\n</style>\n`;
     if (!content.includes("</html>")) {
         content += injection;
     } else {
