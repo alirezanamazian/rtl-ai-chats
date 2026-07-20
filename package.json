@@ -112,7 +112,7 @@
           "enum": ["Vazirmatn", "Sahel", "System default"],
           "default": "Vazirmatn",
           "order": 2,
-          "description": "Font used for right-to-left text (must be installed on your system; falls back to the system default if unavailable)."
+          "description": "Font used for right-to-left text. Vazirmatn and Sahel are bundled and work out of the box; System default uses whatever the chat already renders with."
         },
         "rtl-ai-chats.font.scale": {
           "type": "number",

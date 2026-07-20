@@ -10,7 +10,6 @@
 ![License](https://img.shields.io/badge/License-MIT-blue)
 ![Open VSX](https://img.shields.io/open-vsx/v/alirezanamazian/rtl-ai-chats?label=Open%20VSX)
 ![Editors](https://img.shields.io/badge/editors-7%20supported-8b5cf6)
-![Not affiliated](https://img.shields.io/badge/affiliation-unofficial%20community%20patch-lightgrey)
 
 </div>
 
@@ -133,7 +132,7 @@ editor.
 | `rtl-ai-chats.autoApplyOnStartup` | `true` | Re-apply automatically on startup and after updates. |
 | `rtl-ai-chats.showInActivityBar` | `true` | Show/hide the Activity Bar panel. |
 | `rtl-ai-chats.showStatusBar` | `true` | Show/hide the on/off item in the status bar. |
-| `rtl-ai-chats.font.family` | `Vazirmatn` | Font for RTL text — `Vazirmatn` (bundled, works out of the box), `Sahel` (must be installed on your system), or `System default`. |
+| `rtl-ai-chats.font.family` | `Vazirmatn` | Font for RTL text — `Vazirmatn` and `Sahel` are bundled and work out of the box, `System default` uses whatever the chat already renders with. |
 | `rtl-ai-chats.font.scale` | `1` | Size of RTL text relative to the chat's default. |
 | `rtl-ai-chats.font.lineHeight` | `1.85` | Line spacing for RTL text. |
 | `rtl-ai-chats.detection.mode` | `ratio` | `ratio` (smart: flips once enough of a message's letters are RTL) or `first-strong` (flips based on the first strong-directional character, like the browser's native `dir="auto"`). |
@@ -158,8 +157,8 @@ then uninstall the extension normally from each editor.
 
 ## Credits
 
-The bundled `Vazirmatn` font is by Saber Rastikerdar, licensed under the
-[SIL Open Font License](assets/fonts/OFL.txt).
+The bundled `Vazirmatn` and `Sahel` fonts are by Saber Rastikerdar,
+licensed under the [SIL Open Font License](assets/fonts/OFL.txt).
 
 ## License
 

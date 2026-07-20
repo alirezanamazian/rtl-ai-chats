@@ -51,19 +51,26 @@ const SCRIPT_PATH = path.join(__dirname, "rtl-script.js");
 const CSS_PATH = path.join(__dirname, "rtl-workbench.css");
 const FONT_DIR = path.join(__dirname, "assets", "fonts");
 
-// ── Bundled Vazirmatn font ─────────────────────────────────────────────────────
-// Embedded as base64 data URIs so the @font-face works inside a sandboxed
-// webview regardless of whether Vazirmatn is installed on the host system.
+// ── Bundled fonts ──────────────────────────────────────────────────────────────
+// Embedded as base64 data URIs so @font-face works inside a sandboxed webview
+// regardless of whether the font is installed on the host system.
+
+const BUNDLED_FONT_FILES = {
+    Vazirmatn: { regular: "Vazirmatn-Regular.woff2", bold: "Vazirmatn-Bold.woff2" },
+    Sahel: { regular: "Sahel-Regular.woff2", bold: "Sahel-Bold.woff2" },
+};
 
 function buildFontFaceCss() {
-    if (CONFIG.font.family !== "Vazirmatn") return "";
+    const files = BUNDLED_FONT_FILES[CONFIG.font.family];
+    if (!files) return "";
     try {
-        const regular = fs.readFileSync(path.join(FONT_DIR, "Vazirmatn-Regular.woff2")).toString("base64");
-        const bold = fs.readFileSync(path.join(FONT_DIR, "Vazirmatn-Bold.woff2")).toString("base64");
+        const regular = fs.readFileSync(path.join(FONT_DIR, files.regular)).toString("base64");
+        const bold = fs.readFileSync(path.join(FONT_DIR, files.bold)).toString("base64");
+        const family = CONFIG.font.family;
         return (
-            `@font-face{font-family:'Vazirmatn';font-weight:400;font-style:normal;font-display:swap;` +
+            `@font-face{font-family:'${family}';font-weight:400;font-style:normal;font-display:swap;` +
             `src:url(data:font/woff2;base64,${regular}) format('woff2');}\n` +
-            `@font-face{font-family:'Vazirmatn';font-weight:700;font-style:normal;font-display:swap;` +
+            `@font-face{font-family:'${family}';font-weight:700;font-style:normal;font-display:swap;` +
             `src:url(data:font/woff2;base64,${bold}) format('woff2');}\n`
         );
     } catch {
