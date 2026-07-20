@@ -1,0 +1,331 @@
+#!/usr/bin/env node
+/**
+ * fix-rtl.js — Standalone RTL injection script (multi-editor)
+ *
+ * Injects RTL support into AI agent extensions across every VS Code-family
+ * editor installed on this machine: VS Code, VS Code Insiders, Cursor,
+ * Windsurf, Windsurf Next, Devin Desktop, and Google Antigravity.
+ *
+ * Usage:
+ *   node fix-rtl.js              # apply
+ *   node fix-rtl.js --dry-run    # show what would happen, change nothing
+ *   node fix-rtl.js --restore    # undo everything, restore from backups
+ */
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const os = require("os");
+
+const DRY_RUN = process.argv.includes("--dry-run");
+
+const DEFAULT_CONFIG = {
+    enabled: true,
+    autoApplyOnStartup: true,
+    font: { family: "Vazirmatn", scale: 1, lineHeight: 1.85 },
+    detection: { mode: "ratio", threshold: 0.3 },
+    applyToInput: true,
+    showMessageToggles: true,
+    keepCodeLeftToRight: true,
+};
+
+function parseConfigArg() {
+    const arg = process.argv.find((a) => a.startsWith("--config="));
+    if (!arg) return DEFAULT_CONFIG;
+    try {
+        return { ...DEFAULT_CONFIG, ...JSON.parse(arg.slice("--config=".length)) };
+    } catch {
+        return DEFAULT_CONFIG;
+    }
+}
+
+const CONFIG = parseConfigArg();
+// Disabling the extension is just a restore: pull every patched file back
+// to its pre-extension state and stop touching it.
+const RESTORE = process.argv.includes("--restore") || CONFIG.enabled === false;
+
+const MARKER = "// RTL AI Chats (injected)";
+const WORKBENCH_MARKER = "/* RTL AI Chats (injected) */";
+
+const SCRIPT_PATH = path.join(__dirname, "rtl-script.js");
+const CSS_PATH = path.join(__dirname, "rtl-workbench.css");
+
+// ── Editors this script knows about ───────────────────────────────────────────
+// `extDir` is the dot-folder under $HOME that holds `extensions/`.
+// `macApp` / `winProgram` are used to locate each editor's own workbench.html
+// (for chat panels that are built into the editor itself, not shipped as a
+// separate extension — e.g. Antigravity's native Gemini agent panel).
+
+const EDITORS = [
+    { name: "VS Code", extDir: ".vscode", macApp: "Visual Studio Code.app", winProgram: "Microsoft VS Code" },
+    { name: "VS Code Insiders", extDir: ".vscode-insiders", macApp: "Visual Studio Code - Insiders.app", winProgram: "Microsoft VS Code Insiders" },
+    { name: "Cursor", extDir: ".cursor", macApp: "Cursor.app", winProgram: "cursor" },
+    { name: "Windsurf", extDir: ".windsurf", macApp: "Windsurf.app", winProgram: "Windsurf" },
+    { name: "Windsurf Next", extDir: ".windsurf-next", macApp: "Windsurf Next.app", winProgram: "Windsurf Next" },
+    { name: "Devin Desktop", extDir: ".devin", macApp: "Devin Desktop.app", winProgram: "Devin Desktop" },
+    { name: "Antigravity", extDir: ".antigravity", macApp: "Antigravity.app", winProgram: "Antigravity" },
+];
+
+// ── Helper functions ──────────────────────────────────────────────────────────
+
+function findLatestExtension(extensionsDir, prefix) {
+    try {
+        const dirs = fs
+            .readdirSync(extensionsDir)
+            .filter((d) => d.startsWith(prefix))
+            .sort()
+            .reverse();
+        return dirs.length > 0 ? path.join(extensionsDir, dirs[0]) : null;
+    } catch {
+        return null;
+    }
+}
+
+// Webview-based agent extensions to look for inside each editor's extensions/ dir
+function findInjectionTargetsFor(editorLabel, extensionsDir) {
+    const targets = [];
+
+    const claudeDir = findLatestExtension(extensionsDir, "anthropic.claude-code-");
+    if (claudeDir) {
+        const p = path.join(claudeDir, "webview", "index.js");
+        if (fs.existsSync(p)) targets.push({ name: `Claude Code (${editorLabel})`, path: p });
+    }
+
+    const codexDir = findLatestExtension(extensionsDir, "openai.chatgpt-");
+    if (codexDir) {
+        const htmlPath = path.join(codexDir, "webview", "index.html");
+        if (fs.existsSync(htmlPath)) {
+            const html = fs.readFileSync(htmlPath, "utf8");
+            const match = html.match(/src="\.\/assets\/(index-[^"]+\.js)"/);
+            if (match) {
+                const p = path.join(codexDir, "webview", "assets", match[1]);
+                if (fs.existsSync(p)) targets.push({ name: `ChatGPT/Codex (${editorLabel})`, path: p });
+            }
+        }
+    }
+
+    const geminiDir = findLatestExtension(extensionsDir, "google.geminicodeassist-");
+    if (geminiDir) {
+        const p = path.join(geminiDir, "webview", "app_bundle.js");
+        if (fs.existsSync(p)) targets.push({ name: `Gemini Code Assist (${editorLabel})`, path: p });
+    }
+
+    return targets;
+}
+
+function findAllInjectionTargets() {
+    const targets = [];
+    for (const editor of EDITORS) {
+        const extensionsDir = path.join(os.homedir(), editor.extDir, "extensions");
+        if (!fs.existsSync(extensionsDir)) continue;
+        targets.push(...findInjectionTargetsFor(editor.name, extensionsDir));
+    }
+    return targets;
+}
+
+// Native chat panels built into the editor itself (Copilot Chat in VS Code,
+// Antigravity's built-in Gemini agent panel, etc.) — patched via workbench.html
+function findAllWorkbenches() {
+    const found = [];
+
+    const winWb = (dir) =>
+        path.join(dir, "resources", "app", "out", "vs", "code", "electron-browser", "workbench", "workbench.html");
+    const macWb = (dir) =>
+        path.join(dir, "Contents", "Resources", "app", "out", "vs", "code", "electron-browser", "workbench", "workbench.html");
+
+    for (const editor of EDITORS) {
+        // Windows: C:\Users\<user>\AppData\Local\Programs\<winProgram>\<version>\...
+        try {
+            const winBase = path.join(os.homedir(), "AppData", "Local", "Programs", editor.winProgram);
+            if (fs.existsSync(winBase)) {
+                const versionDirs = fs.readdirSync(winBase).filter((d) => fs.existsSync(winWb(path.join(winBase, d))));
+                if (versionDirs.length > 0) {
+                    found.push({ name: editor.name, path: winWb(path.join(winBase, versionDirs[0])) });
+                    continue;
+                }
+            }
+        } catch {}
+
+        // macOS: /Applications/<macApp>/Contents/Resources/app/...
+        try {
+            const macBase = path.join("/Applications", editor.macApp);
+            if (fs.existsSync(macWb(macBase))) {
+                found.push({ name: editor.name, path: macWb(macBase) });
+            }
+        } catch {}
+    }
+
+    return found;
+}
+
+function isInjected(filePath) {
+    try {
+        return fs.readFileSync(filePath, "utf8").includes(MARKER);
+    } catch {
+        return false;
+    }
+}
+
+function isWorkbenchInjected(filePath) {
+    try {
+        return fs.readFileSync(filePath, "utf8").includes(WORKBENCH_MARKER);
+    } catch {
+        return false;
+    }
+}
+
+// ── Webview injection ─────────────────────────────────────────────────────────
+
+function injectWebview(target, scriptContent) {
+    const { name, path: filePath } = target;
+
+    if (!fs.existsSync(filePath)) {
+        console.log(`[SKIP] ${name}: file not found\n       ${filePath}`);
+        return;
+    }
+
+    const backupPath = filePath + ".rtl-backup";
+
+    if (RESTORE) {
+        if (fs.existsSync(backupPath)) {
+            if (!DRY_RUN) fs.copyFileSync(backupPath, filePath);
+            console.log(`[RESTORE] ${name}: restored from backup`);
+        } else {
+            console.log(`[SKIP] ${name}: no backup found`);
+        }
+        return;
+    }
+
+    if (isInjected(filePath)) {
+        console.log(`[OK]   ${name}: already injected`);
+        return;
+    }
+
+    if (!fs.existsSync(backupPath)) {
+        if (!DRY_RUN) fs.copyFileSync(filePath, backupPath);
+        console.log(`[BAK]  ${name}: backup saved → ${path.basename(backupPath)}`);
+    }
+
+    if (!DRY_RUN) {
+        const original = fs.readFileSync(filePath, "utf8");
+        const configSnippet = `window.__RTL_AI_CHATS_CONFIG__ = ${JSON.stringify(CONFIG)};\n`;
+        fs.writeFileSync(filePath, original + `\n\n${MARKER}\n${configSnippet}${scriptContent}\n`, "utf8");
+    }
+    console.log(`[INJ]  ${name}: RTL script injected`);
+}
+
+// ── Workbench injection ───────────────────────────────────────────────────────
+
+function injectWorkbench(target, cssContent) {
+    const { name, path: workbenchPath } = target;
+
+    if (!fs.existsSync(workbenchPath)) {
+        console.log(`[SKIP] ${name} (workbench.html): file not found\n       ${workbenchPath}`);
+        return;
+    }
+
+    const backupPath = workbenchPath + ".rtl-backup";
+
+    if (RESTORE) {
+        if (fs.existsSync(backupPath)) {
+            if (!DRY_RUN) fs.copyFileSync(backupPath, workbenchPath);
+            console.log(`[RESTORE] ${name} (workbench.html): restored from backup`);
+        } else {
+            console.log(`[SKIP] ${name}: no backup found`);
+        }
+        return;
+    }
+
+    if (isWorkbenchInjected(workbenchPath)) {
+        console.log(`[OK]   ${name} (workbench.html): already injected`);
+        return;
+    }
+
+    if (!fs.existsSync(backupPath)) {
+        if (!DRY_RUN) fs.copyFileSync(workbenchPath, backupPath);
+        console.log(`[BAK]  ${name} (workbench.html): backup saved`);
+    }
+
+    let content = fs.readFileSync(workbenchPath, "utf8");
+
+    // Remove old devin-custom-css RTL injection (from a previous extension) if present
+    const sessionIdMarker = "<!-- !! DEVIN-CUSTOM-CSS-SESSION-ID";
+    const cssEnd = "<!-- !! DEVIN-CUSTOM-CSS-END !! -->";
+    const oldStart = content.indexOf(sessionIdMarker);
+    if (oldStart !== -1) {
+        const oldEnd = content.indexOf(cssEnd, oldStart);
+        if (oldEnd !== -1) {
+            content = content.substring(0, oldStart) + content.substring(oldEnd + cssEnd.length);
+            console.log(`[CLN]  ${name}: removed old custom-css injection`);
+        }
+    }
+
+    const fontStack =
+        CONFIG.font.family === "System default"
+            ? "inherit"
+            : `'${CONFIG.font.family}', 'Sahel', 'Vazirmatn', sans-serif`;
+    const varsBlock = `:root {\n  --rtl-ai-font-family: ${fontStack};\n  --rtl-ai-font-scale: ${CONFIG.font.scale};\n  --rtl-ai-line-height: ${CONFIG.font.lineHeight};\n}\n`;
+    const injection = `\n<!-- ${WORKBENCH_MARKER} -->\n<style id="rtl-ai-chats">\n${varsBlock}${cssContent}\n</style>\n`;
+    if (!content.includes("</html>")) {
+        content += injection;
+    } else {
+        content = content.replace("</html>", injection + "</html>");
+    }
+
+    if (!DRY_RUN) fs.writeFileSync(workbenchPath, content, "utf8");
+    console.log(`[INJ]  ${name} (workbench.html): RTL CSS injected`);
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
+function main() {
+    if (DRY_RUN) console.log("[DRY RUN] No files will be modified\n");
+    if (RESTORE && CONFIG.enabled === false) {
+        console.log("[DISABLED] rtl-ai-chats.enabled is off — restoring all files from backups\n");
+    } else if (RESTORE) {
+        console.log("[RESTORE] Restoring all files from backups\n");
+    }
+
+    let scriptContent, cssContent;
+    try {
+        scriptContent = fs.readFileSync(SCRIPT_PATH, "utf8");
+    } catch {
+        console.error(`ERROR: Cannot read rtl-script.js at ${SCRIPT_PATH}`);
+        process.exit(1);
+    }
+    try {
+        cssContent = fs.readFileSync(CSS_PATH, "utf8");
+    } catch {
+        console.error(`ERROR: Cannot read rtl-workbench.css at ${CSS_PATH}`);
+        process.exit(1);
+    }
+
+    console.log("=== Scanning installed editors ===");
+    for (const editor of EDITORS) {
+        const extensionsDir = path.join(os.homedir(), editor.extDir, "extensions");
+        console.log(`${fs.existsSync(extensionsDir) ? "✓" : "·"} ${editor.name}`);
+    }
+    console.log("");
+
+    // ── Webview-based agent extensions (Claude Code / Codex / Gemini Code Assist) ──
+    const targets = findAllInjectionTargets();
+    if (targets.length === 0) {
+        console.log("[SKIP] No matching AI agent extensions found in any installed editor.");
+    }
+    for (const target of targets) {
+        injectWebview(target, scriptContent);
+    }
+
+    // ── Native chat panels (Copilot Chat, Antigravity's built-in agent, etc.) ──────
+    const workbenches = findAllWorkbenches();
+    for (const wb of workbenches) {
+        injectWorkbench(wb, cssContent);
+    }
+
+    console.log("\nDone!");
+    if (!RESTORE) {
+        console.log('Reload each open editor window to activate: "Developer: Reload Window"');
+    }
+}
+
+main();

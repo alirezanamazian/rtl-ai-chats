@@ -1,0 +1,4 @@
+node_modules/
+*.vsix
+*.rtl-backup
+.DS_Store

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline';" />
+<title>RTL for AI Chats</title>
+<style>
+  body {
+    font-family: var(--vscode-font-family);
+    font-size: var(--vscode-font-size);
+    color: var(--vscode-foreground);
+    padding: 12px;
+  }
+  h3 {
+    margin: 16px 0 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--vscode-descriptionForeground);
+  }
+  h3:first-of-type { margin-top: 0; }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 0;
+  }
+  .row label { flex: 1; cursor: pointer; }
+  .row .hint {
+    display: block;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 1px;
+  }
+  select, input[type="number"] {
+    background: var(--vscode-dropdown-background);
+    color: var(--vscode-dropdown-foreground);
+    border: 1px solid var(--vscode-dropdown-border);
+    border-radius: 2px;
+    padding: 2px 4px;
+    width: 110px;
+  }
+  input[type="range"] { width: 110px; }
+  button {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+  }
+  button:hover { background: var(--vscode-button-hoverBackground); }
+  button.secondary {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+  }
+  button.secondary:hover { background: var(--vscode-button-secondaryHoverBackground); }
+  hr {
+    border: none;
+    border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border));
+    margin: 14px 0;
+  }
+  #status {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+    margin-top: 10px;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+<body>
+
+  <h3>General</h3>
+  <div class="row">
+    <label for="enabled">Enabled<span class="hint">Turn RTL support on or off everywhere</span></label>
+    <input type="checkbox" id="enabled" />
+  </div>
+  <div class="row">
+    <label for="autoApplyOnStartup">Auto re-apply on startup<span class="hint">Needed to survive editor/extension updates</span></label>
+    <input type="checkbox" id="autoApplyOnStartup" />
+  </div>
+  <div class="row">
+    <label for="showStatusBar">Show status bar item</label>
+    <input type="checkbox" id="showStatusBar" />
+  </div>
+
+  <h3>Font</h3>
+  <div class="row">
+    <label for="fontFamily">Family</label>
+    <select id="fontFamily">
+      <option>Vazirmatn</option>
+      <option>Sahel</option>
+      <option>System default</option>
+    </select>
+  </div>
+  <div class="row">
+    <label for="fontScale">Size <span id="fontScaleVal"></span></label>
+    <input type="range" id="fontScale" min="0.8" max="1.6" step="0.05" />
+  </div>
+  <div class="row">
+    <label for="lineHeight">Line height <span id="lineHeightVal"></span></label>
+    <input type="range" id="lineHeight" min="1.3" max="2.5" step="0.05" />
+  </div>
+
+  <h3>Detection</h3>
+  <div class="row">
+    <label for="detectionMode">Mode</label>
+    <select id="detectionMode">
+      <option value="ratio">Smart (ratio)</option>
+      <option value="first-strong">First strong char</option>
+    </select>
+  </div>
+  <div class="row">
+    <label for="threshold">Threshold <span id="thresholdVal"></span><span class="hint">Smart mode only</span></label>
+    <input type="range" id="threshold" min="0.1" max="0.7" step="0.05" />
+  </div>
+  <div class="row">
+    <label for="applyToInput">Flip the message box too</label>
+    <input type="checkbox" id="applyToInput" />
+  </div>
+  <div class="row">
+    <label for="showMessageToggles">Per-message direction toggle</label>
+    <input type="checkbox" id="showMessageToggles" />
+  </div>
+  <div class="row">
+    <label for="keepCodeLeftToRight">Keep code / diffs / terminal LTR</label>
+    <input type="checkbox" id="keepCodeLeftToRight" />
+  </div>
+
+  <hr />
+
+  <button id="apply">Re-apply to all editors now</button>
+  <button id="status" class="secondary">Show injection status</button>
+  <button id="restore" class="secondary">Restore original (undo all)</button>
+
+  <div id="status-msg"></div>
+
+<script>
+  const vscode = acquireVsCodeApi();
+
+  const els = {
+    enabled: document.getElementById('enabled'),
+    autoApplyOnStartup: document.getElementById('autoApplyOnStartup'),
+    showStatusBar: document.getElementById('showStatusBar'),
+    fontFamily: document.getElementById('fontFamily'),
+    fontScale: document.getElementById('fontScale'),
+    lineHeight: document.getElementById('lineHeight'),
+    detectionMode: document.getElementById('detectionMode'),
+    threshold: document.getElementById('threshold'),
+    applyToInput: document.getElementById('applyToInput'),
+    showMessageToggles: document.getElementById('showMessageToggles'),
+    keepCodeLeftToRight: document.getElementById('keepCodeLeftToRight'),
+  };
+
+  function setConfig(key, value) {
+    vscode.postMessage({ type: 'setConfig', key, value });
+  }
+
+  els.enabled.addEventListener('change', () => setConfig('enabled', els.enabled.checked));
+  els.autoApplyOnStartup.addEventListener('change', () => setConfig('autoApplyOnStartup', els.autoApplyOnStartup.checked));
+  els.showStatusBar.addEventListener('change', () => setConfig('showStatusBar', els.showStatusBar.checked));
+  els.fontFamily.addEventListener('change', () => setConfig('font.family', els.fontFamily.value));
+  els.fontScale.addEventListener('input', () => {
+    document.getElementById('fontScaleVal').textContent = els.fontScale.value + 'x';
+    setConfig('font.scale', parseFloat(els.fontScale.value));
+  });
+  els.lineHeight.addEventListener('input', () => {
+    document.getElementById('lineHeightVal').textContent = els.lineHeight.value;
+    setConfig('font.lineHeight', parseFloat(els.lineHeight.value));
+  });
+  els.detectionMode.addEventListener('change', () => setConfig('detection.mode', els.detectionMode.value));
+  els.threshold.addEventListener('input', () => {
+    document.getElementById('thresholdVal').textContent = els.threshold.value;
+    setConfig('detection.threshold', parseFloat(els.threshold.value));
+  });
+  els.applyToInput.addEventListener('change', () => setConfig('applyToInput', els.applyToInput.checked));
+  els.showMessageToggles.addEventListener('change', () => setConfig('showMessageToggles', els.showMessageToggles.checked));
+  els.keepCodeLeftToRight.addEventListener('change', () => setConfig('keepCodeLeftToRight', els.keepCodeLeftToRight.checked));
+
+  document.getElementById('apply').addEventListener('click', () => vscode.postMessage({ type: 'reinject' }));
+  document.getElementById('status').addEventListener('click', () => vscode.postMessage({ type: 'checkStatus' }));
+  document.getElementById('restore').addEventListener('click', () => vscode.postMessage({ type: 'restore' }));
+
+  window.addEventListener('message', (event) => {
+    const msg = event.data;
+    if (msg.type === 'config') {
+      const c = msg.config;
+      els.enabled.checked = c.enabled;
+      els.autoApplyOnStartup.checked = c.autoApplyOnStartup;
+      els.showStatusBar.checked = c.showStatusBar;
+      els.fontFamily.value = c.font.family;
+      els.fontScale.value = c.font.scale;
+      document.getElementById('fontScaleVal').textContent = c.font.scale + 'x';
+      els.lineHeight.value = c.font.lineHeight;
+      document.getElementById('lineHeightVal').textContent = c.font.lineHeight;
+      els.detectionMode.value = c.detection.mode;
+      els.threshold.value = c.detection.threshold;
+      document.getElementById('thresholdVal').textContent = c.detection.threshold;
+      els.applyToInput.checked = c.applyToInput;
+      els.showMessageToggles.checked = c.showMessageToggles;
+      els.keepCodeLeftToRight.checked = c.keepCodeLeftToRight;
+    } else if (msg.type === 'statusText') {
+      document.getElementById('status-msg').textContent = msg.text;
+    }
+  });
+
+  vscode.postMessage({ type: 'ready' });
+</script>
+</body>
+</html>

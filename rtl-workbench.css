@@ -1,0 +1,42 @@
+/* RTL AI Chats (injected) */
+/* Native chat panels (Copilot Chat, Antigravity's built-in agent, etc.) RTL support
+ * via unicode-bidi: plaintext — these render inside the main workbench DOM,
+ * not inside a sandboxed webview, so no bidi-override problem to fix here.
+ * unicode-bidi: plaintext lets the browser's BiDi algorithm determine paragraph
+ * direction from the first strong RTL/LTR character in each paragraph.
+ */
+
+/* ── Message content ─────────────────────────────────────────────────────── */
+.chat-markdown-part p,
+.chat-markdown-part li,
+.chat-markdown-part h1,
+.chat-markdown-part h2,
+.chat-markdown-part h3,
+.chat-markdown-part h4,
+.rendered-markdown p,
+.rendered-markdown li,
+.rendered-markdown h1,
+.rendered-markdown h2,
+.rendered-markdown h3,
+.rendered-markdown h4 {
+    unicode-bidi: plaintext;
+    text-align: start;
+    font-family: var(--rtl-ai-font-family, inherit);
+    font-size: calc(1em * var(--rtl-ai-font-scale, 1));
+    line-height: var(--rtl-ai-line-height, inherit);
+}
+
+/* ── Code blocks must stay LTR ───────────────────────────────────────────── */
+.chat-markdown-part pre,
+.chat-markdown-part code,
+.rendered-markdown pre,
+.rendered-markdown code {
+    direction: ltr;
+    unicode-bidi: embed;
+    text-align: left;
+}
+
+/* ── Chat input ──────────────────────────────────────────────────────────── */
+.chat-input-part .monaco-editor .view-lines {
+    unicode-bidi: plaintext;
+}
