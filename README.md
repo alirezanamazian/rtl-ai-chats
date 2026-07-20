@@ -21,11 +21,16 @@
 > flipped. **RTL for AI Chats** patches the chat itself so it just reads
 > correctly, everywhere you use it, without you doing anything after setup.
 
-| Without it | With it |
-| --- | --- |
-| Persian/Arabic replies render left-aligned and visually broken | Every RTL message snaps right-aligned, in the correct direction |
-| Code snippets inside RTL answers get mirrored along with the text | Code blocks, diffs, and terminals always stay left-to-right |
-| An editor or extension update silently undoes any manual fix | The patch watches for updates and re-applies itself automatically |
+```diff
+- Persian/Arabic replies render left-aligned, punctuation and numbers scrambled
++ Every RTL message snaps right-aligned, reading in the correct direction
+
+- Code snippets inside an RTL answer get mirrored along with the text
++ Code blocks, diffs, and terminals always stay left-to-right, untouched
+
+- An editor or extension update silently undoes any manual fix you made
++ The patch watches for updates and re-applies itself automatically
+```
 
 ## Features
 
