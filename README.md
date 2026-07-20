@@ -1,40 +1,48 @@
+<div align="center">
+
+<img src="icon.png" width="88" alt="RTL for AI Chats" />
+
 # RTL for AI Chats
 
-Automatic right-to-left (RTL) text support for AI coding assistant chat
-panels across every VS Code-family editor.
+**Your AI assistant already speaks Persian, Arabic, Urdu, and Hebrew.**
+**Now its chat panel finally reads that way too.**
 
-Persian, Arabic, Urdu, Hebrew, and other RTL scripts render correctly and
-align to the right, while code blocks, diffs, and terminals always stay
-left-to-right — exactly like a native RTL chat app.
+![License](https://img.shields.io/badge/License-MIT-blue)
+![Open VSX](https://img.shields.io/open-vsx/v/alirezanamazian/rtl-ai-chats?label=Open%20VSX)
+![Editors](https://img.shields.io/badge/editors-7%20supported-8b5cf6)
+![Not affiliated](https://img.shields.io/badge/affiliation-unofficial%20community%20patch-lightgrey)
 
-> Not affiliated with Anthropic, OpenAI, Google, or Microsoft. This is a
-> community patch, not an official feature of any of those products.
+</div>
 
-## Why this exists
+---
 
-None of these editors natively support RTL rendering in their AI chat
-panels. If you write to Claude Code, Codex, or Gemini in Persian, Arabic,
-Hebrew, or Urdu, your text shows up left-aligned and often visually
-scrambled — punctuation, numbers, and mixed-direction sentences render in
-the wrong order. This extension fixes that by patching each chat's webview
-(or, for chats built into the editor itself, its `workbench.html`) with
-RTL-aware CSS and a small script that detects RTL text per element and
-flips its direction, without touching code blocks, diffs, or terminal
-output.
+> None of these editors natively render RTL script in their AI chat panels —
+> a Persian question shows up left-aligned, punctuation scrambled, numbers
+> flipped. **RTL for AI Chats** patches the chat itself so it just reads
+> correctly, everywhere you use it, without you doing anything after setup.
 
-## What it does — features
+| Without it | With it |
+| --- | --- |
+| Persian/Arabic replies render left-aligned and visually broken | Every RTL message snaps right-aligned, in the correct direction |
+| Code snippets inside RTL answers get mirrored along with the text | Code blocks, diffs, and terminals always stay left-to-right |
+| An editor or extension update silently undoes any manual fix | The patch watches for updates and re-applies itself automatically |
 
-- **Automatic RTL detection, per message.** Every chat bubble/element is
-  inspected for RTL script; only the ones that actually contain RTL text
-  get flipped. Mixed English/Persian messages, numbers, and punctuation are
-  handled correctly instead of just blanket-mirroring the whole panel.
-- **Code stays LTR, always.** Code blocks, inline code, diffs, and terminal
-  panes are explicitly excluded from the RTL flip, so a Persian question
-  followed by a JS snippet doesn't turn the snippet backwards.
-- **Works across 7 editors, out of the box:** VS Code, VS Code Insiders,
+## Features
+
+- **Detects direction per message, not per panel.** Each chat element is
+  checked for RTL script on its own — mixed Persian/English messages,
+  inline numbers, and punctuation all render correctly instead of the whole
+  panel just being blanket-mirrored.
+- **Two detection modes.** `ratio` (smart — flips once enough of a
+  message's letters are RTL, tunable by threshold) or `first-strong`
+  (matches the browser's native `dir="auto"` behavior).
+- **Code never flips.** Code blocks, inline code, diffs, and terminal panes
+  are explicitly excluded, so a Persian question followed by a JS snippet
+  doesn't turn the snippet backwards.
+- **Runs across 7 editors out of the box:** VS Code, VS Code Insiders,
   Cursor, Windsurf, Windsurf Next, Devin Desktop, and Google Antigravity —
-  the extension scans `~/.vscode`, `~/.cursor`, `~/.windsurf`, etc. and
-  patches whichever ones are actually installed.
+  it scans `~/.vscode`, `~/.cursor`, `~/.windsurf`, etc. and patches
+  whichever ones are actually installed on your machine.
 - **Patches 4 AI chat surfaces:**
 
   | Target | How |
@@ -44,32 +52,32 @@ output.
   | Gemini Code Assist | `webview/app_bundle.js` in `google.geminicodeassist-*` |
   | Copilot Chat / Antigravity's built-in agent | the editor's own `workbench.html` |
 
-- **Self-healing.** Runs on startup, then watches every installed editor's
-  `extensions/` folder live. If an editor or extension update overwrites
-  the patch, it's silently re-applied automatically — you just get a
-  one-click "Reload Window" prompt, no manual re-running required.
+- **Self-healing.** Watches every installed editor's `extensions/` folder
+  live — the moment an update overwrites the patch, it's silently
+  re-applied and you just get a one-click "Reload Window" prompt.
+- **Fully configurable**, from a settings panel in the Activity Bar or the
+  standard Settings UI — font, size, line-height, detection mode and
+  threshold, per-message override toggle, and more. See
+  [Settings](#settings).
 - **Safe by design.** Every file is backed up to `<file>.rtl-backup` before
-  the first patch, so nothing is ever modified without a way back.
-- **One-command restore.** Undo every patch across every editor and go back
-  to a completely clean, unmodified state — useful before uninstalling or
-  updating the base editor.
-- **In-editor status view.** See exactly what's patched vs. broken, per
-  editor and per chat surface, with a one-click fix.
-- **A full Settings panel**, in the Activity Bar — toggle RTL on/off, pick a
-  font (Vazirmatn, Sahel, or your system default), tune size/line-height,
-  choose how direction is detected, and re-apply/restore without touching
-  the Command Palette. See [Settings](#settings) below.
-- **No extension required, if you'd rather not install one.** Everything
-  the extension does is also available as a standalone script you can run
-  by hand or from your own tooling.
+  the first patch, and one command restores everything, everywhere.
+- **No extension required, if you'd rather not install one.** Every part of
+  what the extension does is also a standalone script you can run by hand.
 
 ## Install
 
-**One-shot (recommended) — builds the `.vsix` once and installs it into
-every editor found on your machine:**
+**From Open VSX** (Cursor, Windsurf, VSCodium, and other Open VSX-backed
+editors): search **"RTL for AI Chats"** in Extensions, or open the
+[listing](https://open-vsx.org/extension/alirezanamazian/rtl-ai-chats)
+directly and click **Install**.
+
+> VS Code Marketplace listing is pending review — until then, use Open VSX
+> or install the `.vsix` manually below.
+
+**One-shot script** — builds the `.vsix` once and installs it into every
+editor found on your machine:
 
 ```bash
-chmod +x install.sh
 ./install.sh
 ```
 
@@ -84,8 +92,8 @@ Then in each editor: `Extensions` → `…` menu → `Install from VSIX...` →
 select the generated `rtl-ai-chats-*.vsix`, then run
 `Developer: Reload Window`.
 
-**No-install alternative** (just run the patch script directly, no
-extension needed):
+**No-install alternative** — run the patch script directly, no extension
+needed:
 
 ```bash
 node fix-rtl.js            # apply
@@ -93,7 +101,7 @@ node fix-rtl.js --dry-run  # preview only, no changes
 node fix-rtl.js --restore  # undo everything
 ```
 
-## Commands (inside the editor)
+## Commands
 
 Open the Command Palette (`Cmd/Ctrl+Shift+P`) and run:
 
@@ -110,8 +118,9 @@ Open the Command Palette (`Cmd/Ctrl+Shift+P`) and run:
 ## Settings
 
 Click the RTL icon in the Activity Bar for a settings panel, or open
-`Settings → Extensions → RTL for AI Chats`. Changing any setting re-applies
-the patch automatically across every installed editor.
+`Settings → Extensions → RTL for AI Chats`. Changing any setting that
+affects the patch re-applies it automatically across every installed
+editor.
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -145,3 +154,7 @@ then uninstall the extension normally from each editor.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+---
+
+<div align="center"><sub>Not affiliated with Anthropic, OpenAI, Google, or Microsoft — an unofficial community patch.</sub></div>
