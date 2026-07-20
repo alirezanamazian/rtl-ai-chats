@@ -266,10 +266,23 @@ function injectWebview(target, scriptContent) {
 
         const configSnippet = `window.__RTL_AI_CHATS_CONFIG__ = ${JSON.stringify(CONFIG)};\n`;
         let fontFaceSnippet = "";
-        if (FONT_FACE_CSS && copyFontsNextTo(targetDir)) {
+        const fontFiles = BUNDLED_FONT_FILES[CONFIG.font.family];
+        if (fontFiles && copyFontsNextTo(targetDir)) {
+            // The bundled script is loaded as `type="module"`, so a plain
+            // relative url() in CSS can resolve against the wrong base.
+            // Resolve the two font files against this script's own (module)
+            // URL at runtime instead — document.currentScript is always null
+            // for modules, so fall back to the lone script[src] tag.
             fontFaceSnippet =
-                `(function(){var s=document.createElement('style');s.id='rtl-ai-chats-fontface';` +
-                `s.textContent=${JSON.stringify(FONT_FACE_CSS)};` +
+                `(function(){` +
+                `var el=document.currentScript||document.querySelector('script[src]');` +
+                `var base=el&&el.src?el.src:document.baseURI;` +
+                `var reg=new URL(${JSON.stringify("./" + FONT_COPY_NAMES.regular)},base).href;` +
+                `var bold=new URL(${JSON.stringify("./" + FONT_COPY_NAMES.bold)},base).href;` +
+                `var fam=${JSON.stringify(CONFIG.font.family)};` +
+                `var css="@font-face{font-family:'"+fam+"';font-weight:400;font-style:normal;font-display:swap;src:url('"+reg+"') format('woff2');}\\n"+` +
+                `"@font-face{font-family:'"+fam+"';font-weight:700;font-style:normal;font-display:swap;src:url('"+bold+"') format('woff2');}\\n";` +
+                `var s=document.createElement('style');s.id='rtl-ai-chats-fontface';s.textContent=css;` +
                 `function inj(){(document.head||document.documentElement).appendChild(s);}` +
                 `if(document.head){inj();}else{document.addEventListener('DOMContentLoaded',inj);}})();\n`;
         } else {
