@@ -8,7 +8,7 @@
 **Now its chat panel finally reads that way too.**
 
 ![License](https://img.shields.io/badge/License-MIT-blue)
-![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/alirezanamazian.rtl-ai-chats?label=VS%20Code%20Marketplace)
+[![VS Code Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-install-007ACC)](https://marketplace.visualstudio.com/items?itemName=alirezanamazian.rtl-ai-chats)
 ![Open VSX](https://img.shields.io/open-vsx/v/alirezanamazian/rtl-ai-chats?label=Open%20VSX)
 ![Editors](https://img.shields.io/badge/editors-7%20supported-8b5cf6)
 
