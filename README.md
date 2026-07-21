@@ -8,6 +8,7 @@
 **Now its chat panel finally reads that way too.**
 
 ![License](https://img.shields.io/badge/License-MIT-blue)
+![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/alirezanamazian.rtl-ai-chats?label=VS%20Code%20Marketplace)
 ![Open VSX](https://img.shields.io/open-vsx/v/alirezanamazian/rtl-ai-chats?label=Open%20VSX)
 ![Editors](https://img.shields.io/badge/editors-7%20supported-8b5cf6)
 
@@ -70,13 +71,15 @@
 
 ## Install
 
+**From the VS Code Marketplace** (VS Code, VS Code Insiders): search
+**"RTL for AI Chats"** in Extensions, or open the
+[listing](https://marketplace.visualstudio.com/items?itemName=alirezanamazian.rtl-ai-chats)
+directly and click **Install**.
+
 **From Open VSX** (Cursor, Windsurf, VSCodium, and other Open VSX-backed
 editors): search **"RTL for AI Chats"** in Extensions, or open the
 [listing](https://open-vsx.org/extension/alirezanamazian/rtl-ai-chats)
 directly and click **Install**.
-
-> VS Code Marketplace listing is pending review — until then, use Open VSX
-> or install the `.vsix` manually below.
 
 **One-shot script** — builds the `.vsix` once and installs it into every
 editor found on your machine:
