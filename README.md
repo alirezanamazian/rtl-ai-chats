@@ -44,6 +44,10 @@
 - **Code never flips.** Code blocks, inline code, diffs, and terminal panes
   are explicitly excluded, so a Persian question followed by a JS snippet
   doesn't turn the snippet backwards.
+- **Numbers, filenames, and URLs stay put mid-sentence.** A Persian message
+  that mentions `index.js`, a percentage, or a link no longer scrambles that
+  part — it cooperates with the browser's own bidi algorithm instead of
+  forcing one direction on every character.
 - **Clarifying-question widgets included.** Claude Code's AskUserQuestion /
   permission-request cards and Codex's multiple-choice option lists render
   RTL too, not just the main message stream.
