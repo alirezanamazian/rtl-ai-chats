@@ -44,6 +44,9 @@
 - **Code never flips.** Code blocks, inline code, diffs, and terminal panes
   are explicitly excluded, so a Persian question followed by a JS snippet
   doesn't turn the snippet backwards.
+- **Clarifying-question widgets included.** Claude Code's AskUserQuestion /
+  permission-request cards and Codex's multiple-choice option lists render
+  RTL too, not just the main message stream.
 - **Runs across 7 editors out of the box:** VS Code, VS Code Insiders,
   Cursor, Windsurf, Windsurf Next, Devin Desktop, and Google Antigravity —
   it scans `~/.vscode`, `~/.cursor`, `~/.windsurf`, etc. and patches

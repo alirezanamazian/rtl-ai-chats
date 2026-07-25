@@ -2,7 +2,7 @@
   "name": "rtl-ai-chats",
   "displayName": "RTL for AI Chats",
   "description": "Automatic right-to-left (RTL) text support for AI coding assistant chat panels (Claude Code, ChatGPT/Codex, Gemini Code Assist, Copilot Chat, and Antigravity's built-in agent) across VS Code, Cursor, Windsurf, Devin Desktop, and Antigravity. Not affiliated with Anthropic, OpenAI, Google, or Microsoft.",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "publisher": "alirezanamazian",
   "icon": "icon.png",
   "license": "MIT",

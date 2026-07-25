@@ -112,11 +112,18 @@
         '[class*="assistantMessage_"]',
         '[class*="humanMessage_"]',
         '[class*="markdownContent_"]',
+        // Claude Code — AskUserQuestion / permission request widget
+        '[class*="questionTextLarge_"]',
+        '[class*="optionLabel_"]',
+        '[class*="optionDescription_"]',
+        '[class*="navTabLabel_"]',
         // ChatGPT / Codex
         '.text-size-chat',
         '[class*="text-size-chat"]',
         '[class*="prose"]',
         '[class*="chatMessage"]',
+        // Codex — clarifying-question options (no dedicated class, radiogroup is the anchor)
+        '[role="radiogroup"] span',
         // Gemini Code Assist (Angular components)
         'app-message',
         'ncfc-message',
@@ -129,6 +136,10 @@
 
     function addToggle(el) {
         if (!CONFIG.showMessageToggles) return;
+        // Question/option widgets are too compact for a toggle chip
+        if (el.closest && el.closest('[role="radiogroup"], [role="radio"], [class*="questionsContainer_"], [class*="permissionRequestContent_"]')) return;
+        // Only the outermost matched ancestor gets a toggle
+        if (el.parentElement && el.parentElement.closest(CHAT_SELECTORS)) return;
         if (el.querySelector(':scope > .rtl-ai-toggle')) return;
         if (getComputedStyle(el).position === 'static') el.style.position = 'relative';
         const btn = document.createElement('span');

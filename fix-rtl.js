@@ -110,7 +110,7 @@ const EDITORS = [
     { name: "Cursor", extDir: ".cursor", macApp: "Cursor.app", winProgram: "cursor" },
     { name: "Windsurf", extDir: ".windsurf", macApp: "Windsurf.app", winProgram: "Windsurf" },
     { name: "Windsurf Next", extDir: ".windsurf-next", macApp: "Windsurf Next.app", winProgram: "Windsurf Next" },
-    { name: "Devin Desktop", extDir: ".devin", macApp: "Devin Desktop.app", winProgram: "Devin Desktop" },
+    { name: "Devin Desktop", extDir: ".devin", macApp: "Devin.app", winProgram: "Devin Desktop" },
     { name: "Antigravity", extDir: ".antigravity", macApp: "Antigravity.app", winProgram: "Antigravity" },
 ];
 
