@@ -186,10 +186,10 @@
             }
             if (node.nodeType === Node.ELEMENT_NODE) {
                 anchorRLM(node);
-                if (el.getAttribute('data-rtl-anchored') !== '1' && node.getAttribute('data-rtl-anchored') === '1') {
+                if (node.getAttribute('data-rtl-anchored') === '1') {
                     el.setAttribute('data-rtl-anchored', '1');
+                    return;
                 }
-                return;
             }
         }
     }
