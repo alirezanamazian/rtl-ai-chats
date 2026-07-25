@@ -16,6 +16,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const crypto = require("crypto");
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -110,7 +111,9 @@ const EDITORS = [
     { name: "Cursor", extDir: ".cursor", macApp: "Cursor.app", winProgram: "cursor" },
     { name: "Windsurf", extDir: ".windsurf", macApp: "Windsurf.app", winProgram: "Windsurf" },
     { name: "Windsurf Next", extDir: ".windsurf-next", macApp: "Windsurf Next.app", winProgram: "Windsurf Next" },
-    { name: "Devin Desktop", extDir: ".devin", macApp: "Devin.app", winProgram: "Devin Desktop" },
+    // Devin's Squirrel updater checks the app's code signature at launch, so
+    // patching workbench.html breaks it ("installation appears to be corrupt").
+    { name: "Devin Desktop", extDir: ".devin", macApp: "Devin.app", winProgram: "Devin Desktop", skipWorkbench: true },
     { name: "Antigravity", extDir: ".antigravity", macApp: "Antigravity.app", winProgram: "Antigravity" },
 ];
 
@@ -182,6 +185,8 @@ function findAllWorkbenches() {
         path.join(dir, "Contents", "Resources", "app", "out", "vs", "code", "electron-browser", "workbench", "workbench.html");
 
     for (const editor of EDITORS) {
+        if (editor.skipWorkbench) continue;
+
         // Windows: C:\Users\<user>\AppData\Local\Programs\<winProgram>\<version>\...
         try {
             const winBase = path.join(os.homedir(), "AppData", "Local", "Programs", editor.winProgram);
@@ -293,6 +298,53 @@ function injectWebview(target, scriptContent) {
     console.log(`[INJ]  ${name}: RTL script ${wasAlreadyInjected ? "refreshed" : "injected"}`);
 }
 
+// ── product.json checksum fix ─────────────────────────────────────────────────
+// VS Code's IntegrityService flags a "corrupt installation" if a file's live
+// sha256 no longer matches product.json's checksums entry for it. Keep that
+// entry in sync after patching workbench.html (same trick as vscode-fix-checksums).
+
+function findProductJson(workbenchPath) {
+    // workbenchPath: .../app/out/vs/code/electron-browser/workbench/workbench.html
+    const appDir = path.resolve(path.dirname(workbenchPath), "..", "..", "..", "..");
+    const productPath = path.join(appDir, "..", "product.json");
+    return fs.existsSync(productPath) ? { productPath, outDir: appDir } : null;
+}
+
+function computeChecksum(filePath) {
+    const contents = fs.readFileSync(filePath);
+    return crypto.createHash("sha256").update(contents).digest("base64").replace(/=+$/, "");
+}
+
+function fixProductChecksums(workbenchPath) {
+    const found = findProductJson(workbenchPath);
+    if (!found) return;
+    const { productPath, outDir } = found;
+    const backupPath = productPath + ".rtl-backup";
+    if (!fs.existsSync(backupPath)) fs.copyFileSync(productPath, backupPath);
+
+    const product = JSON.parse(fs.readFileSync(productPath, "utf8"));
+    if (!product.checksums) return;
+
+    let changed = false;
+    for (const relPath of Object.keys(product.checksums)) {
+        const filePath = path.join(outDir, ...relPath.split("/"));
+        if (!fs.existsSync(filePath)) continue;
+        const checksum = computeChecksum(filePath);
+        if (checksum !== product.checksums[relPath]) {
+            product.checksums[relPath] = checksum;
+            changed = true;
+        }
+    }
+    if (changed) fs.writeFileSync(productPath, JSON.stringify(product, null, "\t"), "utf8");
+}
+
+function restoreProductChecksums(workbenchPath) {
+    const found = findProductJson(workbenchPath);
+    if (!found) return;
+    const backupPath = found.productPath + ".rtl-backup";
+    if (fs.existsSync(backupPath)) fs.copyFileSync(backupPath, found.productPath);
+}
+
 // ── Workbench injection ───────────────────────────────────────────────────────
 
 function injectWorkbench(target, cssContent) {
@@ -310,6 +362,7 @@ function injectWorkbench(target, cssContent) {
             if (!DRY_RUN) {
                 fs.copyFileSync(backupPath, workbenchPath);
                 removeFontsFrom(path.dirname(workbenchPath));
+                restoreProductChecksums(workbenchPath);
             }
             console.log(`[RESTORE] ${name} (workbench.html): restored from backup`);
         } else {
@@ -371,7 +424,10 @@ function injectWorkbench(target, cssContent) {
         content = content.replace("</html>", injection + "</html>");
     }
 
-    if (!DRY_RUN) fs.writeFileSync(workbenchPath, content, "utf8");
+    if (!DRY_RUN) {
+        fs.writeFileSync(workbenchPath, content, "utf8");
+        fixProductChecksums(workbenchPath);
+    }
     console.log(`[INJ]  ${name} (workbench.html): RTL CSS ${wasAlreadyInjected ? "refreshed" : "injected"}`);
 }
 
