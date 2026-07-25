@@ -162,15 +162,50 @@
         el.appendChild(btn);
     }
 
+    // An RTL-classified block whose *first strong character* is Latin will,
+    // under `unicode-bidi: plaintext`, get its paragraph direction resolved
+    // by the browser as LTR regardless of our classification (P2/P3 of the
+    // Unicode Bidi Algorithm looks at the first strong character only). An
+    // invisible RLM (U+200F) at the very start of the text gives the
+    // algorithm an RTL first-strong character to anchor on, without
+    // affecting anything visible.
+    const RLM = '‏';
+
+    function firstStrongCharIsLatin(text) {
+        const m = text.match(FIRST_STRONG);
+        return !!m && /[A-Za-z]/.test(m[0]);
+    }
+
+    function anchorRLM(el) {
+        if (el.getAttribute('data-rtl-anchored') === '1') return;
+        for (const node of el.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                node.textContent = RLM + node.textContent;
+                el.setAttribute('data-rtl-anchored', '1');
+                return;
+            }
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                anchorRLM(node);
+                if (el.getAttribute('data-rtl-anchored') !== '1' && node.getAttribute('data-rtl-anchored') === '1') {
+                    el.setAttribute('data-rtl-anchored', '1');
+                }
+                return;
+            }
+        }
+    }
+
     function applyRTL(el) {
         if (CONFIG.keepCodeLeftToRight) {
             el.querySelectorAll('pre, code, .monaco-editor, .view-line').forEach((codeEl) => {
                 codeEl.style.direction = 'ltr';
                 codeEl.style.textAlign = 'left';
-                codeEl.style.unicodeBidi = 'embed';
+                codeEl.style.unicodeBidi = 'isolate';
             });
         }
         addToggle(el);
+        if (el.getAttribute('data-rtl-manual') !== '1' && firstStrongCharIsLatin(el.textContent || '')) {
+            anchorRLM(el);
+        }
         if (el.getAttribute('data-rtl-ai') === '1') return;
         el.setAttribute('data-rtl-ai', '1');
         el.style.direction = 'rtl';
@@ -179,6 +214,7 @@
 
     function removeForcedRTL(el) {
         addToggle(el);
+        el.removeAttribute('data-rtl-anchored');
         if (!el.getAttribute('data-rtl-ai')) return;
         el.removeAttribute('data-rtl-ai');
         el.style.direction = '';
