@@ -17,7 +17,36 @@
     CONFIG.font = Object.assign({}, DEFAULT_CONFIG.font, CONFIG.font);
     CONFIG.detection = Object.assign({}, DEFAULT_CONFIG.detection, CONFIG.detection);
 
-    // ── [1] CSS FIX ──────────────────────────────────────────────────────────
+    // ── [1] CHAT SELECTORS ────────────────────────────────────────────────────
+    const CHAT_SELECTORS = [
+        // Claude Code — hashed CSS module class names, so we use substring match
+        '[class*="timelineMessage_"]',
+        '[class*="userMessageContainer_"]',
+        '[class*="messageContainer_"]',
+        '[class*="assistantMessage_"]',
+        '[class*="humanMessage_"]',
+        '[class*="markdownContent_"]',
+        // Claude Code — AskUserQuestion / permission request widget
+        '[class*="questionTextLarge_"]',
+        '[class*="optionLabel_"]',
+        '[class*="optionDescription_"]',
+        '[class*="navTabLabel_"]',
+        // ChatGPT / Codex
+        '.text-size-chat',
+        '[class*="text-size-chat"]',
+        '[class*="prose"]',
+        '[class*="chatMessage"]',
+        // Codex — clarifying-question options (no dedicated class, radiogroup is the anchor)
+        '[role="radiogroup"] span',
+        // Gemini Code Assist (Angular components)
+        'app-message',
+        'ncfc-message',
+        'app-ai-chat',
+        'gcf-message',
+        'app-chat-message',
+    ].join(', ');
+
+    // ── [2] CSS FIX ──────────────────────────────────────────────────────────
     const fontStack =
         CONFIG.font.family === 'System default'
             ? 'inherit'
@@ -26,7 +55,7 @@
         ? `
         pre, code, .monaco-editor, .view-lines, .view-line {
             direction: ltr !important;
-            unicode-bidi: embed !important;
+            unicode-bidi: isolate !important;
             text-align: left !important;
         }
         [data-rtl-ai="1"] pre,
@@ -35,16 +64,15 @@
         [data-rtl-ai="1"] .view-line {
             direction: ltr !important;
             text-align: left !important;
-            unicode-bidi: embed !important;
+            unicode-bidi: isolate !important;
         }`
         : '';
 
     const styleEl = document.createElement('style');
     styleEl.id = 'rtl-ai-chats-fix';
     styleEl.textContent = `
-        * {
-            direction: inherit !important;
-            unicode-bidi: embed !important;
+        ${CHAT_SELECTORS}, ${CHAT_SELECTORS.split(', ').map((s) => `${s} p, ${s} li, ${s} h1, ${s} h2, ${s} h3, ${s} h4, ${s} h5, ${s} h6`).join(', ')} {
+            unicode-bidi: plaintext !important;
         }
         ${codeLtrRule}
         [data-rtl-ai="1"] {
@@ -83,7 +111,7 @@
     }
     injectStyle();
 
-    // ── [2] RTL DETECTION ─────────────────────────────────────────────────────
+    // ── [3] RTL DETECTION ─────────────────────────────────────────────────────
     const RTL_CHAR = /[\u0590-\u05FF\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/;
     const RTL_CHAR_G = new RegExp(RTL_CHAR.source, 'g');
     const LTR_CHAR_G = /[A-Za-z]/g;
@@ -102,35 +130,6 @@
         if (total === 0) return false;
         return rtlCount / total >= CONFIG.detection.threshold;
     }
-
-    // ── [3] CHAT SELECTORS ────────────────────────────────────────────────────
-    const CHAT_SELECTORS = [
-        // Claude Code — hashed CSS module class names, so we use substring match
-        '[class*="timelineMessage_"]',
-        '[class*="userMessageContainer_"]',
-        '[class*="messageContainer_"]',
-        '[class*="assistantMessage_"]',
-        '[class*="humanMessage_"]',
-        '[class*="markdownContent_"]',
-        // Claude Code — AskUserQuestion / permission request widget
-        '[class*="questionTextLarge_"]',
-        '[class*="optionLabel_"]',
-        '[class*="optionDescription_"]',
-        '[class*="navTabLabel_"]',
-        // ChatGPT / Codex
-        '.text-size-chat',
-        '[class*="text-size-chat"]',
-        '[class*="prose"]',
-        '[class*="chatMessage"]',
-        // Codex — clarifying-question options (no dedicated class, radiogroup is the anchor)
-        '[role="radiogroup"] span',
-        // Gemini Code Assist (Angular components)
-        'app-message',
-        'ncfc-message',
-        'app-ai-chat',
-        'gcf-message',
-        'app-chat-message',
-    ].join(', ');
 
     // ── [4] RTL APPLICATION ───────────────────────────────────────────────────
 
