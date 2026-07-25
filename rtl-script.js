@@ -194,6 +194,25 @@
         }
     }
 
+    // Reverses anchorRLM: walks the same first-text-bearing subtree and
+    // strips a leading RLM if present, so reclassifying a block from RTL to
+    // LTR doesn't leave a stale invisible strong-RTL character behind that
+    // would keep steering the Unicode Bidi Algorithm's paragraph direction.
+    function stripRLM(el) {
+        for (const node of el.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                if (node.textContent.charAt(0) === RLM) {
+                    node.textContent = node.textContent.slice(1);
+                }
+                return true;
+            }
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                if (stripRLM(node)) return true;
+            }
+        }
+        return false;
+    }
+
     function applyRTL(el) {
         if (CONFIG.keepCodeLeftToRight) {
             el.querySelectorAll('pre, code, .monaco-editor, .view-line').forEach((codeEl) => {
@@ -203,7 +222,8 @@
             });
         }
         addToggle(el);
-        if (el.getAttribute('data-rtl-manual') !== '1' && firstStrongCharIsLatin(el.textContent || '')) {
+        const isEditable = el.closest && el.closest('textarea, [contenteditable="true"]');
+        if (!isEditable && el.getAttribute('data-rtl-manual') !== '1' && firstStrongCharIsLatin(el.textContent || '')) {
             anchorRLM(el);
         }
         if (el.getAttribute('data-rtl-ai') === '1') return;
@@ -214,6 +234,9 @@
 
     function removeForcedRTL(el) {
         addToggle(el);
+        if (el.getAttribute('data-rtl-anchored') === '1') {
+            stripRLM(el);
+        }
         el.removeAttribute('data-rtl-anchored');
         if (!el.getAttribute('data-rtl-ai')) return;
         el.removeAttribute('data-rtl-ai');
