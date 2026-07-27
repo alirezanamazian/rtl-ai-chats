@@ -8,11 +8,8 @@ const { execFile } = require("child_process");
 
 const CONFIG_SECTION = "rtl-ai-chats";
 
-// Same freshness stamp fix-rtl.js writes (kept in sync) — lets the watcher
-// tell "has our marker" apart from "has OUR CURRENT rtl-script.js". Without
-// this, a webview patched once keeps its marker across editor auto-updates
-// that overwrite the file, but never picks up a newer rtl-script.js from a
-// later rtl-ai-chats release.
+// Same freshness stamp fix-rtl.js writes (kept in sync) — marker presence
+// alone doesn't mean the injected content is from the current version.
 const EXTENSION_VERSION = require("./package.json").version;
 const VERSION_TAG_TEXT = `rtl-ai-chats-version: ${EXTENSION_VERSION}`;
 
@@ -148,9 +145,7 @@ function findAllWorkbenches() {
     return found;
 }
 
-// True only when the marker is present AND stamped with the CURRENT
-// extension version — false for a file that still has an older
-// rtl-script.js injected under a stale marker.
+// Marker present AND stamped with the current version — not just marker present.
 function isFresh(filePath) {
     try {
         return fs.readFileSync(filePath, "utf8").includes(VERSION_TAG_TEXT);

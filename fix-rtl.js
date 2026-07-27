@@ -48,12 +48,8 @@ const RESTORE = process.argv.includes("--restore") || CONFIG.enabled === false;
 const MARKER = "// RTL AI Chats (injected)";
 const WORKBENCH_MARKER = "/* RTL AI Chats (injected) */";
 
-// Stamped into every injection alongside MARKER so isFresh() can tell "this
-// file has our marker" apart from "this file has OUR CURRENT rtl-script.js".
-// Without this, a webview patched once keeps its marker across editor
-// auto-updates that overwrite the file's own content, but never picks up a
-// newer rtl-script.js from a later rtl-ai-chats release — the self-healing
-// watcher sees the marker and assumes nothing is broken.
+// Stamped into every injection alongside MARKER so extension.js's isFresh()
+// can tell "has our marker" apart from "has our current rtl-script.js".
 const EXTENSION_VERSION = require("./package.json").version;
 const VERSION_TAG_TEXT = `rtl-ai-chats-version: ${EXTENSION_VERSION}`;
 const VERSION_TAG = `// ${VERSION_TAG_TEXT}`;

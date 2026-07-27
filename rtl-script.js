@@ -162,13 +162,8 @@
         el.appendChild(btn);
     }
 
-    // An RTL-classified block whose *first strong character* is Latin will,
-    // under `unicode-bidi: plaintext`, get its paragraph direction resolved
-    // by the browser as LTR regardless of our classification (P2/P3 of the
-    // Unicode Bidi Algorithm looks at the first strong character only). An
-    // invisible RLM (U+200F) at the very start of the text gives the
-    // algorithm an RTL first-strong character to anchor on, without
-    // affecting anything visible.
+    // plaintext resolves direction from the first strong char (UBA P2/P3),
+    // so a Latin-first RTL block needs an invisible RLM anchor to stay RTL.
     const RLM = '‏';
 
     function firstStrongCharIsLatin(text) {
@@ -194,10 +189,7 @@
         }
     }
 
-    // Reverses anchorRLM: walks the same first-text-bearing subtree and
-    // strips a leading RLM if present, so reclassifying a block from RTL to
-    // LTR doesn't leave a stale invisible strong-RTL character behind that
-    // would keep steering the Unicode Bidi Algorithm's paragraph direction.
+    // Reverses anchorRLM — strips a stale leading RLM so LTR reclassification actually renders LTR.
     function stripRLM(el) {
         for (const node of el.childNodes) {
             if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
