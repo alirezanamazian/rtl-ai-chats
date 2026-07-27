@@ -6,9 +6,15 @@ const path = require("path");
 const os = require("os");
 const { execFile } = require("child_process");
 
-const MARKER = "// RTL AI Chats (injected)";
-const WORKBENCH_MARKER = "/* RTL AI Chats (injected) */";
 const CONFIG_SECTION = "rtl-ai-chats";
+
+// Same freshness stamp fix-rtl.js writes (kept in sync) — lets the watcher
+// tell "has our marker" apart from "has OUR CURRENT rtl-script.js". Without
+// this, a webview patched once keeps its marker across editor auto-updates
+// that overwrite the file, but never picks up a newer rtl-script.js from a
+// later rtl-ai-chats release.
+const EXTENSION_VERSION = require("./package.json").version;
+const VERSION_TAG_TEXT = `rtl-ai-chats-version: ${EXTENSION_VERSION}`;
 
 const EDITORS = [
     { name: "VS Code", extDir: ".vscode", macApp: "Visual Studio Code.app", winProgram: "Microsoft VS Code" },
@@ -142,17 +148,20 @@ function findAllWorkbenches() {
     return found;
 }
 
-function isInjected(filePath) {
+// True only when the marker is present AND stamped with the CURRENT
+// extension version — false for a file that still has an older
+// rtl-script.js injected under a stale marker.
+function isFresh(filePath) {
     try {
-        return fs.readFileSync(filePath, "utf8").includes(MARKER);
+        return fs.readFileSync(filePath, "utf8").includes(VERSION_TAG_TEXT);
     } catch {
         return false;
     }
 }
 
-function isWorkbenchInjected(filePath) {
+function isWorkbenchFresh(filePath) {
     try {
-        return fs.readFileSync(filePath, "utf8").includes(WORKBENCH_MARKER);
+        return fs.readFileSync(filePath, "utf8").includes(VERSION_TAG_TEXT);
     } catch {
         return false;
     }
@@ -188,9 +197,9 @@ function buildStatusLines() {
     const workbenches = findAllWorkbenches();
 
     const lines = ["RTL AI Chats — Injection Status\n"];
-    targets.forEach((t) => lines.push(`${isInjected(t.path) ? "✓" : "✗"} ${t.name}`));
+    targets.forEach((t) => lines.push(`${isFresh(t.path) ? "✓" : "✗"} ${t.name}`));
     workbenches.forEach((w) =>
-        lines.push(`${isWorkbenchInjected(w.path) ? "✓" : "✗"} ${w.name} (native chat panel)`),
+        lines.push(`${isWorkbenchFresh(w.path) ? "✓" : "✗"} ${w.name} (native chat panel)`),
     );
     if (targets.length === 0 && workbenches.length === 0) {
         lines.push("No supported editors or AI agent extensions found on this machine.");
@@ -217,8 +226,8 @@ function isAnythingBroken() {
     const targets = findAllInjectionTargets();
     const workbenches = findAllWorkbenches();
     return (
-        targets.some((t) => !isInjected(t.path)) ||
-        workbenches.some((w) => !isWorkbenchInjected(w.path))
+        targets.some((t) => !isFresh(t.path)) ||
+        workbenches.some((w) => !isWorkbenchFresh(w.path))
     );
 }
 

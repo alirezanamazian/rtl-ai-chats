@@ -48,6 +48,16 @@ const RESTORE = process.argv.includes("--restore") || CONFIG.enabled === false;
 const MARKER = "// RTL AI Chats (injected)";
 const WORKBENCH_MARKER = "/* RTL AI Chats (injected) */";
 
+// Stamped into every injection alongside MARKER so isFresh() can tell "this
+// file has our marker" apart from "this file has OUR CURRENT rtl-script.js".
+// Without this, a webview patched once keeps its marker across editor
+// auto-updates that overwrite the file's own content, but never picks up a
+// newer rtl-script.js from a later rtl-ai-chats release — the self-healing
+// watcher sees the marker and assumes nothing is broken.
+const EXTENSION_VERSION = require("./package.json").version;
+const VERSION_TAG_TEXT = `rtl-ai-chats-version: ${EXTENSION_VERSION}`;
+const VERSION_TAG = `// ${VERSION_TAG_TEXT}`;
+
 const SCRIPT_PATH = path.join(__dirname, "rtl-script.js");
 const CSS_PATH = path.join(__dirname, "rtl-workbench.css");
 const FONT_DIR = path.join(__dirname, "assets", "fonts");
@@ -293,7 +303,11 @@ function injectWebview(target, scriptContent) {
         } else {
             removeFontsFrom(targetDir);
         }
-        fs.writeFileSync(filePath, original + markerBlock + configSnippet + fontFaceSnippet + scriptContent + "\n", "utf8");
+        fs.writeFileSync(
+            filePath,
+            original + markerBlock + VERSION_TAG + "\n" + configSnippet + fontFaceSnippet + scriptContent + "\n",
+            "utf8",
+        );
     }
     console.log(`[INJ]  ${name}: RTL script ${wasAlreadyInjected ? "refreshed" : "injected"}`);
 }
@@ -417,7 +431,7 @@ function injectWorkbench(target, cssContent) {
     } else {
         fontFaceCss = FONT_FACE_CSS;
     }
-    const injection = `\n<!-- ${WORKBENCH_MARKER} -->\n<style id="rtl-ai-chats">\n${fontFaceCss}${varsBlock}${cssContent}\n</style>\n`;
+    const injection = `\n<!-- ${WORKBENCH_MARKER} -->\n<style id="rtl-ai-chats">\n/* ${VERSION_TAG_TEXT} */\n${fontFaceCss}${varsBlock}${cssContent}\n</style>\n`;
     if (!content.includes("</html>")) {
         content += injection;
     } else {
